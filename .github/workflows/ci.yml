@@ -1,0 +1,94 @@
+name: Verify and deploy reader
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+concurrency:
+  group: paperwarden-${{ github.ref }}
+  cancel-in-progress: false
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - run: npm ci
+      - run: npm run format:check
+      - run: npm run check
+      - run: python3 scripts/reference-link.py --check
+      - name: Check reproducible committed release
+        run: git diff --exit-code -- dist/paperwarden.html dist/paperwarden.html.sha256
+      - run: npx playwright install --with-deps chromium
+      - run: sudo apt-get update && sudo apt-get install -y poppler-utils
+      - run: npm run test:browser
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: failure()
+        with:
+          name: test-diagnostics
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+  publish:
+    needs: verify
+    if: github.repository == 'qecez/paperwarden' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: production
+      url: https://paperwarden.com
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - run: npm ci
+      - name: Prepare the exact verified commit
+        run: node scripts/prepare-site.mjs
+      - name: Attest the reader and deployment record
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
+        with:
+          subject-path: |
+            dist/paperwarden.html
+            artifacts/site/deployment.json
+      - name: Preserve the deployment artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: paperwarden-${{ github.sha }}-${{ github.run_attempt }}
+          path: artifacts/site/
+          if-no-files-found: error
+          retention-days: 90
+      - name: Deploy the verified files to Cloudflare
+        run: npx --no-install wrangler deploy --message "GitHub commit $GITHUB_SHA"
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          WRANGLER_SEND_METRICS: "false"
+      - name: Verify the live reader against this commit
+        run: node scripts/verify-live.mjs --attempts 12
+      - name: Publish verification details
+        run: |
+          {
+            echo "### Live reader verified"
+            echo "https://paperwarden.com"
+            echo
+            echo "Source commit: $GITHUB_SHA"
+            echo
+            echo '```text'
+            cat dist/paperwarden.html.sha256
+            echo '```'
+            echo
+            echo "Both live reader URLs match the committed file byte for byte."
+          } >> "$GITHUB_STEP_SUMMARY"

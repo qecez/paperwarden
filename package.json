@@ -1,0 +1,43 @@
+{
+  "name": "paperwarden",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "tsc --noEmit && node scripts/build.mjs",
+    "preview": "node scripts/serve.mjs",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src tests scripts --max-warnings=0",
+    "test": "vitest run",
+    "test:browser": "playwright test",
+    "check": "npm run typecheck && npm run lint && npm test && npm run build",
+    "format": "prettier --write src tests scripts *.ts *.js *.json",
+    "format:check": "prettier --check src tests scripts *.ts *.js *.json"
+  },
+  "dependencies": {
+    "@zxing/library": "0.23.0",
+    "hash-wasm": "4.12.0",
+    "qrcode": "1.5.4"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.14.0",
+    "@eslint/js": "10.0.1",
+    "@playwright/test": "1.64.1",
+    "@types/node": "26.6.5",
+    "@types/qrcode": "1.5.6",
+    "esbuild": "0.28.2",
+    "eslint": "10.12.0",
+    "parse5": "8.0.1",
+    "prettier": "3.9.10",
+    "tsx": "4.23.15",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.71.2",
+    "vite": "8.3.4",
+    "vitest": "5.0.5",
+    "wrangler": "4.153.0"
+  },
+  "engines": {
+    "node": ">=24 <25"
+  }
+}

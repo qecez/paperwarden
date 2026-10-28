@@ -1,0 +1,468 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="referrer" content="no-referrer" />
+    <title>Paperwarden</title>
+    <link
+      rel="icon"
+      type="image/svg+xml"
+      href="/src/app/assets/paperwarden-icon.svg"
+    />
+    <link rel="stylesheet" href="/src/app/style.css" />
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to main content</a>
+    <main id="main">
+      <header class="app-bar">
+        <div class="app-identity">
+          <img
+            class="app-icon"
+            src="/src/app/assets/paperwarden-icon.svg"
+            width="56"
+            height="56"
+            alt=""
+          />
+          <div class="app-brand">
+            <div class="app-title">
+              <h1 class="app-name">
+                paper<span class="app-name-light">warden</span>
+              </h1>
+              <span class="version" aria-label="Version __APP_VERSION__"
+                >v__APP_VERSION__</span
+              >
+            </div>
+            <p class="app-tagline">Encrypted Paper Backups</p>
+          </div>
+        </div>
+        <div class="header-actions">
+          <button id="about" type="button" class="quiet" aria-haspopup="dialog">
+            About
+          </button>
+          <a
+            class="project-link"
+            href="https://github.com/qecez/paperwarden"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Paperwarden on GitHub (opens in a new tab)"
+            ><svg
+              class="github-icon"
+              width="18"
+              height="18"
+              viewBox="0 0 16 16"
+              fill="currentColor"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <path d="M6.766 11.328c-2.063-.25-3.516-1.734-3.516-3.656 0-.781.281-1.625.75-2.188-.203-.515-.172-1.609.063-2.062.625-.078 1.468.25 1.968.703.594-.187 1.219-.281 1.985-.281.765 0 1.39.094 1.953.265.484-.437 1.344-.765 1.969-.687.218.422.25 1.515.046 2.047.5.593.766 1.39.766 2.203 0 1.922-1.453 3.375-3.547 3.64.531.344.89 1.094.89 1.954v1.625c0 .468.391.734.86.547C13.781 14.359 16 11.53 16 8.03 16 3.61 12.406 0 7.984 0 3.563 0 0 3.61 0 8.031a7.88 7.88 0 0 0 5.172 7.422c.422.156.828-.125.828-.547v-1.25c-.219.094-.5.156-.75.156-1.031 0-1.64-.562-2.078-1.609-.172-.422-.36-.672-.719-.719-.187-.015-.25-.093-.25-.187 0-.188.313-.328.625-.328.453 0 .844.281 1.25.86.313.452.64.655 1.031.655s.641-.14 1-.5c.266-.265.47-.5.657-.656" />
+            </svg>
+            GitHub
+            <svg
+              class="external-icon"
+              width="14"
+              height="14"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.5"
+              aria-hidden="true"
+            >
+              <path d="M6 3h7v7M13 3 4 12M3 3H2v11h11v-1" /></svg
+          ></a>
+        </div>
+      </header>
+      <nav aria-label="Choose an action">
+        <button
+          id="encrypt-tab"
+          type="button"
+          aria-current="page"
+          aria-controls="encrypt-view"
+        >
+          Encrypt
+        </button>
+        <button id="decrypt-tab" type="button" aria-controls="decrypt-view">
+          Decrypt
+        </button>
+      </nav>
+      <noscript
+        ><p class="notice">
+          This app needs JavaScript enabled to create and open encrypted
+          backups. Everything runs on your device.
+        </p></noscript
+      >
+      <section id="encrypt-view" aria-label="Create an encrypted backup">
+        <div id="encrypt-form">
+          <fieldset id="encrypt-fields">
+            <legend class="sr-only">Messages and passwords</legend>
+            <div id="message-list">
+              <fieldset class="message-fields" data-message>
+                <legend class="sr-only">Your message</legend>
+                <label for="text">Message</label>
+                <textarea
+                  id="text"
+                  data-text
+                  rows="4"
+                  required
+                  spellcheck="false"
+                  autocomplete="off"
+                  aria-describedby="capacity-label capacity"
+                ></textarea>
+                <div id="capacity-display" class="capacity" data-capacity>
+                  <div class="capacity-heading">
+                    <label
+                      id="capacity-label"
+                      for="capacity-meter"
+                      data-capacity-label
+                      >Backup space</label
+                    >
+                    <span
+                      id="capacity"
+                      data-capacity-status
+                      aria-live="polite"
+                      aria-atomic="true"
+                      >0% used</span
+                    >
+                  </div>
+                  <meter
+                    id="capacity-meter"
+                    data-capacity-meter
+                    min="0"
+                    max="1"
+                    value="0"
+                    aria-valuetext="0% used"
+                  ></meter>
+                </div>
+                <label for="password">Password</label>
+                <div class="password-row">
+                  <input
+                    id="password"
+                    data-password
+                    type="password"
+                    autocomplete="off"
+                    autocorrect="off"
+                    required
+                    spellcheck="false"
+                    autocapitalize="none"
+                  /><button
+                    type="button"
+                    class="quiet"
+                    data-show="password"
+                    aria-controls="password"
+                    aria-pressed="false"
+                  >
+                    Show password
+                  </button>
+                </div>
+              </fieldset>
+            </div>
+            <p class="hint">
+              Use several random words or a long, unique password. Keep it safe.
+            </p>
+            <button
+              id="add-message"
+              type="button"
+              class="quiet add-message"
+            >
+              Add another message
+            </button>
+            <p id="message-limit" class="hint" hidden>
+              Four messages added. All share the same backup space.
+            </p>
+          </fieldset>
+          <p id="encrypt-error" role="alert" class="error" hidden></p>
+          <div class="actions">
+            <button class="primary" id="encrypt-button" type="button">
+              Create backup</button
+            ><button id="clear-create" type="button" class="quiet">
+              Clear
+            </button>
+          </div>
+        </div>
+        <section
+          id="backup-result"
+          class="result"
+          aria-label="Your encrypted backup"
+          hidden
+        >
+          <h2 id="backup-heading" tabindex="-1">
+            Backup ready
+          </h2>
+          <p id="stale" class="notice" hidden>
+            You've made changes. Create a new backup to include them.
+          </p>
+          <img id="qr" class="qr" alt="Encrypted backup QR code" />
+          <p id="backup-id" class="backup-id"></p>
+          <div class="actions">
+            <button id="print" type="button" class="primary" data-export>
+              Print backup</button
+            ><button id="save-text" type="button" data-export>
+              Save encrypted text
+            </button>
+          </div>
+          <p>
+            Keep this paper somewhere safe. You'll need your password to open
+            it.
+          </p>
+          <p class="hint">
+            Printing includes a written copy of the encrypted data. Before
+            storing your backup, check that you can open a photo or scan of the
+            actual print.
+          </p>
+          <p id="print-help" class="hint" role="status"></p>
+        </section>
+      </section>
+      <section id="decrypt-view" aria-labelledby="decrypt-heading" hidden>
+        <h2 id="decrypt-heading" tabindex="-1">Open an encrypted backup</h2>
+        <div id="input-methods">
+          <div class="actions">
+            <button id="scan" type="button" class="primary" data-import>
+              Scan QR code</button
+            ><button id="choose-photo" type="button" data-import>
+              Choose QR image</button
+            ><button id="paste" type="button" data-import>
+              Paste backup
+            </button>
+          </div>
+          <input
+            id="photo"
+            type="file"
+            accept="image/png,image/jpeg,image/webp,image/bmp,image/svg+xml,.svg"
+            class="sr-only"
+            aria-label="QR image"
+            tabindex="-1"
+          />
+          <section id="camera" hidden>
+            <p>
+              Hold the whole QR code in view. Keep the paper flat and well lit.
+            </p>
+            <video id="video" muted playsinline aria-label="Camera view"></video
+            ><button id="stop-camera" type="button">Close camera</button>
+          </section>
+          <form id="paste-form" hidden>
+            <label for="encoded">Encrypted text or written copy</label
+            ><textarea
+              id="encoded"
+              spellcheck="false"
+              autocapitalize="none"
+              autocomplete="off"
+              required
+            ></textarea>
+            <p class="hint">
+              Paste your saved encrypted text, a complete backup link, or the
+              printed written copy. Keep every space in saved text and every
+              heading, fingerprint, and numbered line in a written copy.
+            </p>
+            <button type="submit" data-import>Load backup</button>
+          </form>
+        </div>
+        <p id="load-message" role="status"></p>
+        <p id="loaded-backup-id" class="backup-id" hidden></p>
+        <p id="decrypt-error" role="alert" class="error" hidden></p>
+        <div id="decrypt-form" hidden>
+          <fieldset id="decrypt-fields">
+            <legend class="sr-only">Open your backup</legend>
+            <label for="open-password">Password</label>
+            <div class="password-row">
+              <input
+                id="open-password"
+                type="password"
+                aria-describedby="loaded-backup-id"
+                autocomplete="off"
+                autocorrect="off"
+                required
+                spellcheck="false"
+                autocapitalize="none"
+              /><button
+                type="button"
+                class="quiet"
+                data-show="open-password"
+                aria-controls="open-password"
+                aria-pressed="false"
+              >
+                Show password
+              </button>
+            </div>
+            <div class="actions">
+              <button id="open-button" class="primary" type="button">
+                Open backup
+              </button>
+            </div>
+          </fieldset>
+        </div>
+        <section id="recovered" hidden>
+          <h2 id="recovered-heading" tabindex="-1">Your recovered text</h2>
+          <pre id="recovered-text" aria-label="Your recovered text"></pre>
+          <button id="close-text" type="button">Close and clear text</button>
+        </section>
+      </section>
+      <p id="busy-status" role="status" aria-live="polite"></p>
+      <footer>
+        <button id="save-reader" type="button" class="quiet">
+          Download offline app
+        </button>
+        <p class="hint">
+          Keep this file with your important documents. It can open your backups
+          without an internet connection.
+        </p>
+      </footer>
+    </main>
+    <dialog id="about-dialog" aria-labelledby="about-heading">
+      <div class="dialog-heading">
+        <h2 id="about-heading">About Paperwarden</h2>
+        <button id="close-about" type="button" class="quiet" autofocus>
+          Close
+        </button>
+      </div>
+      <div
+        class="dialog-content"
+        tabindex="0"
+        role="region"
+        aria-label="About Paperwarden details"
+      >
+        <p>
+          Paperwarden turns text into an encrypted QR code for printing. Use it
+          for recovery codes, passwords, private keys, or other information you
+          want to keep on paper.
+        </p>
+        <p>
+          To recover a backup, you need its password and a copy of the app. A
+          downloaded copy works offline, without this website or an account.
+        </p>
+        <h3>Plausible deniability</h3>
+        <p>
+          One backup can hold up to four messages, each with its own password.
+          Every backup has the same size and no visible message count. This
+          offers limited plausible deniability: opening a later message reveals
+          earlier occupied space, and a message's size can rule out room for
+          more. It does not guarantee protection under coercion.
+        </p>
+        <h3>Using it safely</h3>
+        <p>
+          Encryption and decryption run on your device. The app does not upload
+          or automatically save your messages or passwords. Clear them when you
+          finish.
+        </p>
+        <p>
+          Paperwarden is a prototype and has not had an independent security
+          audit. Use a trusted device and app; a compromised browser or extension
+          can expose what you enter.
+        </p>
+        <details>
+          <summary>How to use Paperwarden</summary>
+          <p>
+            Enter a message and a long, unique password, then choose Create
+            backup. Print at 100% with the QR's full white border. Check that you
+            can recover every message from a photo of the actual print before
+            storing it. Keep passwords separately; lost passwords cannot be reset.
+          </p>
+          <p>
+            Download offline app saves a clean copy of Paperwarden, without your
+            messages, passwords, or backups. Keep that file for recovery, and
+            keep your printed or saved encrypted backups separately.
+          </p>
+          <p>
+            Open the downloaded app in your browser and choose Decrypt. Scan the
+            QR, choose a QR image, or use Paste backup for encrypted text or a
+            complete backup link. Compare the six-word Backup ID with your paper,
+            then enter the password for the message you want to open.
+          </p>
+          <p>
+            A phone camera can open paperwarden.com from the QR. This uses the
+            website's copy of the app. For recovery without the website, import
+            the QR image or paste the link into your downloaded app.
+          </p>
+        </details>
+        <details>
+          <summary>Verify your offline app</summary>
+          <p>
+            Before opening a downloaded copy, compare its SHA-256 checksum with
+            <a
+              href="https://github.com/qecez/paperwarden/blob/main/dist/paperwarden.html.sha256"
+              target="_blank"
+              rel="noopener noreferrer"
+              >the checksum on GitHub<span class="sr-only"> (opens in a new tab)</span></a>.
+            Use the file at the commit for the same build you downloaded; the
+            displayed v0.1 alone does not identify a build.
+          </p>
+          <p>
+            In the folder containing your download, run the command for your
+            system. Use your actual filename if it differs.
+          </p>
+          <p>macOS</p>
+          <pre class="checksum-command"><code>shasum -a 256 paperwarden.html</code></pre>
+          <p>Linux</p>
+          <pre class="checksum-command"><code>sha256sum paperwarden.html</code></pre>
+          <p>Windows PowerShell</p>
+          <pre class="checksum-command"><code>Get-FileHash .\paperwarden.html -Algorithm SHA256</code></pre>
+          <p>
+            All 64 characters must match; letter case does not matter. A match
+            confirms the file matches that version, not that the software is
+            free of flaws. See the
+            <a
+              href="https://github.com/qecez/paperwarden/blob/main/docs/HOSTING.md#check-a-downloaded-copy"
+              target="_blank"
+              rel="noopener noreferrer"
+              >verification guide<span class="sr-only"> (opens in a new tab)</span></a>
+            for choosing a trusted build and checking its signed attestation.
+          </p>
+        </details>
+        <details id="technical-details">
+          <summary>Technical details</summary>
+          <p>
+            Passwords use NFC normalization and Argon2id with 64 MiB of memory
+            and three passes. HKDF-SHA256 derives separate keys, and AES-256-GCM
+            authenticates each message before it is shown. Anyone holding the
+            backup can attempt password guesses offline.
+          </p>
+          <p>
+            Each PWN-1 envelope is exactly 2,858 bytes. The QR uses version 40
+            and level L error correction. Up to four messages share the same
+            space: one message can use 2,678 UTF-8 bytes, and each additional
+            message costs 28 bytes of capacity. Unused space is filled with
+            random data.
+          </p>
+          <p>
+            Sharing space has privacy limits. Revealing a message's length and
+            position can disclose earlier occupied space or rule out additional
+            messages. This design has no formal deniability proof.
+          </p>
+          <p>
+            The QR carries the encrypted backup after the # in its link. A
+            normal page request excludes that fragment, but the page's code can
+            read it. Importing a QR image or pasting a link into the app
+            decodes it locally without contacting the encoded website.
+          </p>
+          <p>
+            The printed backup includes encrypted text with line checksums and a
+            full SHA-256 fingerprint to check copying errors. The six-word
+            Backup ID is a public 64-bit shorthand for that fingerprint;
+            matching words do not prove authenticity.
+          </p>
+          <p>
+            Test the actual print and downloaded app on the devices you intend to
+            use. Browser memory, screenshots, extensions, and operating-system
+            records are outside the app's control; complete erasure cannot be
+            guaranteed.
+          </p>
+        </details>
+        <p>
+          Paperwarden is MIT licensed.
+          <a
+            href="https://github.com/qecez/paperwarden"
+            target="_blank"
+            rel="noopener noreferrer"
+            >Project on GitHub<span class="sr-only">
+              (opens in a new tab)</span
+            ></a
+          >.
+        </p>
+      </div>
+    </dialog>
+    <section id="print-root" aria-label="Printable encrypted backup"></section>
+    <script id="crypto-worker" type="text/plain">
+      __WORKER_SOURCE__
+    </script>
+    <script id="application" type="module" src="/src/main.ts"></script>
+  </body>
+</html>

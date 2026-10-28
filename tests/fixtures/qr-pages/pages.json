@@ -1,0 +1,26 @@
+[
+  {
+    "file": "backup-a4-1800.gray.gz",
+    "width": 1273,
+    "height": 1800,
+    "envelopeSha256": "98374e3b0523452aa4fe3911507df650565eac2637871ec88e2e916ddd752358"
+  },
+  {
+    "file": "backup-a4-2200.gray.gz",
+    "width": 1556,
+    "height": 2200,
+    "envelopeSha256": "98374e3b0523452aa4fe3911507df650565eac2637871ec88e2e916ddd752358"
+  },
+  {
+    "file": "backup-letter-1800.gray.gz",
+    "width": 1391,
+    "height": 1800,
+    "envelopeSha256": "d29358a870f12675cf842e56dd9817c1b765bae8585916b2dee9a95d63cede7c"
+  },
+  {
+    "file": "backup-letter-2200.gray.gz",
+    "width": 1700,
+    "height": 2200,
+    "envelopeSha256": "d29358a870f12675cf842e56dd9817c1b765bae8585916b2dee9a95d63cede7c"
+  }
+]

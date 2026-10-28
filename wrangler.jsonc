@@ -1,0 +1,15 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "paperwarden",
+  "account_id": "d19a6f72cfd41bbb045dd2cc8625a87e",
+  "compatibility_date": "2026-10-27",
+  "workers_dev": false,
+  "preview_urls": false,
+  "routes": [{ "pattern": "paperwarden.com", "custom_domain": true }],
+  "assets": {
+    "directory": "./artifacts/site",
+    "html_handling": "none",
+    "not_found_handling": "none",
+  },
+  "observability": { "enabled": false },
+}

@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="432" viewBox="0 0 512 432" role="img" aria-labelledby="title desc">
+  <title id="title">Paperwarden</title>
+  <desc id="desc">A pale folded paper document with a dark padlock, above the Paperwarden wordmark.</desc>
+  <defs>
+    <linearGradient id="paper" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#e6e5e2"/>
+      <stop offset="1" stop-color="#f4f3f0"/>
+    </linearGradient>
+    <linearGradient id="fold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#aaa9a7"/>
+      <stop offset="1" stop-color="#c2c1be"/>
+    </linearGradient>
+  </defs>
+  <g transform="translate(128 12)">
+    <path d="M65 16H155L230 89V202C230 226 211 245 187 245H68C44 245 25 226 25 202V56C25 34 43 16 65 16Z" fill="url(#paper)"/>
+    <path d="M155 16L230 89H177C165 89 155 79 155 67Z" fill="url(#fold)"/>
+    <path d="M99 148V133C99 115 112 101 129 101S159 115 159 133V148H146V133C146 123 139 115 129 115S112 123 112 133V148Z" fill="#30373e"/>
+    <rect x="89" y="142" width="80" height="67" rx="13" fill="#30373e"/>
+  </g>
+  <text x="256" y="356" text-anchor="middle" font-family="Inter, system-ui, -apple-system, 'Segoe UI', Arial, sans-serif" font-size="57" font-weight="600" letter-spacing="-2.2" fill="#29313a">Paperwarden</text>
+</svg>
