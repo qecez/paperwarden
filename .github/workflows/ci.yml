@@ -1,0 +1,279 @@
+name: Verify and deploy reader
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+concurrency:
+  group: paperwarden-${{ github.ref }}
+  cancel-in-progress: false
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - run: npm ci
+      - run: npm run format:check
+      - run: npm run check
+      - name: Check Windows download instructions
+        shell: pwsh
+        run: ./tests/check-download.ps1
+      - name: Check independent cryptographic reference
+        run: |
+          python3 -m venv /tmp/paperwarden-reference
+          /tmp/paperwarden-reference/bin/pip install cryptography==48.0.0
+          /tmp/paperwarden-reference/bin/python scripts/reference-vector.py --check
+      - run: python3 scripts/reference-link.py --check
+      - name: Check reproducible committed release
+        run: |
+          git diff --exit-code -- dist/
+          test -z "$(git ls-files --others --exclude-standard -- dist/)"
+      - run: npx playwright install --with-deps chromium firefox webkit
+      - run: sudo apt-get update && sudo apt-get install -y poppler-utils
+      - run: npm run test:browser
+      - name: Check offline recovery in Firefox
+        run: npm run test:recovery
+        env:
+          PAPERWARDEN_TEST_BROWSER: firefox
+      - name: Check PDF export in Firefox
+        run: npm run test:pdf
+        env:
+          PAPERWARDEN_TEST_BROWSER: firefox
+      - name: Check offline recovery in WebKit
+        run: npm run test:recovery
+        env:
+          PAPERWARDEN_TEST_BROWSER: webkit
+      - name: Check PDF export in WebKit
+        run: npm run test:pdf
+        env:
+          PAPERWARDEN_TEST_BROWSER: webkit
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: failure()
+        with:
+          name: test-diagnostics
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+  release:
+    needs: verify
+    if: github.repository == 'qecez/paperwarden' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: release
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    outputs:
+      tag: ${{ steps.release.outputs.tag }}
+      reader_sha256: ${{ steps.release.outputs.reader_sha256 }}
+      reader_source_commit: ${{ steps.release.outputs.reader_source_commit }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+      - name: Prepare the verified committed files
+        run: node scripts/prepare-site.mjs
+      - name: Check release identity
+        id: release
+        run: node scripts/release.mjs --check
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - name: Attest the reader, specification, and deployment record
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
+        with:
+          subject-path: |
+            artifacts/site/paperwarden.html
+            artifacts/site/paperwarden.html.sha256
+            artifacts/site/PWN-1.md
+            artifacts/site/PWN-1.md.sha256
+            artifacts/site/deployment.json
+      - name: Publish the immutable release before deployment
+        run: node scripts/release.mjs --publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+  deploy:
+    needs: release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: production
+      url: https://paperwarden.com
+    permissions:
+      contents: read
+      attestations: read
+    env:
+      RELEASE_TAG: ${{ needs.release.outputs.tag }}
+      READER_SHA256: ${{ needs.release.outputs.reader_sha256 }}
+      READER_SOURCE_COMMIT: ${{ needs.release.outputs.reader_source_commit }}
+    steps:
+      # This runner never installs or executes the application or its build code.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /dist/
+            /docs/FORMAT.md
+            /deployment/package.json
+            /deployment/package-lock.json
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24.19.0"
+          cache: npm
+          cache-dependency-path: deployment/package-lock.json
+      - name: Install only the pinned deployment tool without lifecycle scripts
+        run: npm ci --prefix deployment --ignore-scripts --no-audit --no-fund
+      - name: Download and verify the approved release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir release
+          gh api "repos/qecez/paperwarden/releases/tags/$RELEASE_TAG" > release.json
+          gh release download "$RELEASE_TAG" --repo qecez/paperwarden --dir release \
+            --pattern paperwarden.html --pattern paperwarden.html.sha256 \
+            --pattern PWN-1.md --pattern PWN-1.md.sha256 --pattern deployment.json
+          node --input-type=module <<'VERIFY_RELEASE'
+          import { readFile, writeFile, mkdir } from "node:fs/promises";
+          import { createHash } from "node:crypto";
+          const repo = "https://github.com/qecez/paperwarden";
+          const { GITHUB_SHA: commit, GITHUB_RUN_ID: run, READER_SOURCE_COMMIT: source,
+            READER_SHA256: digest, RELEASE_TAG: tag } = process.env;
+          const requireThat = (condition, message) => { if (!condition) throw new Error(message); };
+          requireThat(/^[0-9a-f]{40}$/.test(commit ?? "") && /^[0-9a-f]{40}$/.test(source ?? "") &&
+            /^[0-9a-f]{64}$/.test(digest ?? "") && /^\d+$/.test(run ?? "") && tag === `sha256-${digest}`,
+            "Invalid approved release identity.");
+          const names = ["paperwarden.html", "paperwarden.html.sha256", "PWN-1.md", "PWN-1.md.sha256", "deployment.json"];
+          const metadata = JSON.parse(await readFile("release.json", "utf8"));
+          requireThat(metadata.immutable === true && metadata.draft === false && metadata.prerelease === false &&
+            metadata.tag_name === tag && metadata.target_commitish === source && Array.isArray(metadata.assets) &&
+            metadata.assets.length === names.length && new Set(metadata.assets.map(asset => asset.name)).size === names.length &&
+            metadata.assets.every(asset => names.includes(asset.name) && asset.state === "uploaded"),
+            "Expected the exact published immutable release.");
+          const bytes = new Map();
+          const sha256 = value => createHash("sha256").update(value).digest("hex");
+          for (const name of names) {
+            const value = await readFile(`release/${name}`);
+            const asset = metadata.assets.find(asset => asset.name === name);
+            requireThat(value.length <= 2_000_000 && asset.size === value.length && asset.digest === `sha256:${sha256(value)}`,
+              `Release asset identity differs: ${name}`);
+            if (name !== "deployment.json")
+              requireThat(value.equals(await readFile(`dist/${name}`)), `Release differs from approved source: ${name}`);
+            bytes.set(name, value);
+          }
+          const specDigest = sha256(bytes.get("PWN-1.md"));
+          requireThat(sha256(bytes.get("paperwarden.html")) === digest &&
+            bytes.get("PWN-1.md").equals(await readFile("docs/FORMAT.md")), "Reader or specification differs.");
+          for (const [name, expected] of [["paperwarden.html", digest], ["PWN-1.md", specDigest]])
+            requireThat(bytes.get(`${name}.sha256`).toString() === `${expected}  ${name}\n`, "Checksum sidecar differs.");
+          const manifest = {
+            schemaVersion: 2, repository: repo, commit, readerSourceCommit: source, format: "PWN-1",
+            readerSha256: digest, specSha256: specDigest, release: `${repo}/releases/tag/${tag}`,
+            sourceCommit: `${repo}/commit/${commit}`, workflowRun: `${repo}/actions/runs/${run}`,
+          };
+          const published = JSON.parse(bytes.get("deployment.json").toString());
+          const expectedPublished = { ...manifest, commit: source, sourceCommit: `${repo}/commit/${source}` };
+          requireThat(Object.keys(published).length === Object.keys(expectedPublished).length &&
+            Object.entries(expectedPublished).every(([key, value]) => key === "workflowRun" ?
+              /^https:\/\/github\.com\/qecez\/paperwarden\/actions\/runs\/\d+$/.test(published[key]) : published[key] === value),
+            "Original release provenance differs.");
+          await mkdir("site");
+          for (const name of names.filter(name => name !== "deployment.json")) await writeFile(`site/${name}`, bytes.get(name));
+          await writeFile("site/index.html", bytes.get("paperwarden.html"));
+          await writeFile("site/deployment.json", JSON.stringify(manifest, null, 2) + "\n");
+          await writeFile("site/_redirects", "/ /index.html 200\n");
+          await writeFile("site/_headers", "/*\n" +
+            "  Cache-Control: no-store, no-transform\n" +
+            "  X-Content-Type-Options: nosniff\n" +
+            "  Referrer-Policy: no-referrer\n" +
+            "  X-Frame-Options: DENY\n" +
+            "  Content-Security-Policy: frame-ancestors 'none'\n" +
+            "/paperwarden.html.sha256\n  Content-Type: text/plain; charset=utf-8\n" +
+            "/PWN-1.md\n  Content-Type: text/plain; charset=utf-8\n" +
+            "/PWN-1.md.sha256\n  Content-Type: text/plain; charset=utf-8\n");
+          // Routing is provisioned separately. Normal releases cannot change it.
+          await writeFile("deployment/runtime.json", JSON.stringify({
+            name: "paperwarden", account_id: "d19a6f72cfd41bbb045dd2cc8625a87e",
+            compatibility_date: "2026-10-27", workers_dev: false, preview_urls: false,
+            assets: { directory: "../site", html_handling: "none", not_found_handling: "none" },
+            observability: { enabled: false },
+          }));
+          VERIFY_RELEASE
+          gh release verify "$RELEASE_TAG" --repo qecez/paperwarden
+          for file in release/*; do
+            gh release verify-asset "$RELEASE_TAG" "$file" --repo qecez/paperwarden
+            # Fresh attestations bind the unchanged files to this verified
+            # checkout. The immutable release's original record keeps its source.
+            ATTESTATION_COMMIT="$GITHUB_SHA"
+            if [ "$file" = "release/deployment.json" ]; then
+              ATTESTATION_COMMIT="$READER_SOURCE_COMMIT"
+            fi
+            gh attestation verify "$file" --repo qecez/paperwarden \
+              --cert-identity https://github.com/qecez/paperwarden/.github/workflows/ci.yml@refs/heads/main \
+              --source-ref refs/heads/main --source-digest "$ATTESTATION_COMMIT" \
+              --signer-digest "$ATTESTATION_COMMIT" --deny-self-hosted-runners
+          done
+          gh attestation verify site/deployment.json --repo qecez/paperwarden \
+            --cert-identity https://github.com/qecez/paperwarden/.github/workflows/ci.yml@refs/heads/main \
+            --source-ref refs/heads/main --source-digest "$GITHUB_SHA" \
+            --signer-digest "$GITHUB_SHA" --deny-self-hosted-runners
+      - name: Deploy only the verified files
+        run: deployment/node_modules/.bin/wrangler deploy --config deployment/runtime.json --message "Paperwarden SHA-256 $READER_SHA256 - commit $GITHUB_SHA"
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          WRANGLER_SEND_METRICS: "false"
+  mirror:
+    needs: [release, deploy]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: mirror
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+      - name: Verify the live reader against the approved source
+        run: node scripts/verify-live.mjs --attempts 12 --reader-commit "$READER_SOURCE_COMMIT"
+        env:
+          READER_SOURCE_COMMIT: ${{ needs.release.outputs.reader_source_commit }}
+      - name: Mirror the verified source and immutable release
+        run: node scripts/mirror.mjs
+        env:
+          RELEASE_TAG: ${{ needs.release.outputs.tag }}
+          READER_SOURCE_COMMIT: ${{ needs.release.outputs.reader_source_commit }}
+          GITLAB_MIRROR_SSH_KEY: ${{ secrets.GITLAB_MIRROR_SSH_KEY }}
+      - name: Publish verification details
+        env:
+          RELEASE_TAG: ${{ needs.release.outputs.tag }}
+          READER_SOURCE_COMMIT: ${{ needs.release.outputs.reader_source_commit }}
+        run: |
+          {
+            echo "### Live reader verified"
+            echo "The live reader and specification match the approved immutable release byte for byte."
+            echo "https://paperwarden.com"
+            echo
+            echo "Release: https://github.com/qecez/paperwarden/releases/tag/$RELEASE_TAG"
+            echo "Deployment source commit: $GITHUB_SHA"
+            echo "Original reader source commit: $READER_SOURCE_COMMIT"
+            echo
+            echo '```text'
+            cat dist/paperwarden.html.sha256
+            cat dist/PWN-1.md.sha256
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

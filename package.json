@@ -1,0 +1,45 @@
+{
+  "name": "paperwarden",
+  "private": true,
+  "type": "module",
+  "overrides": {
+    "minimatch": "11.0.1"
+  },
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "tsc --noEmit && node scripts/build.mjs",
+    "preview": "node scripts/serve.mjs",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src tests scripts --max-warnings=0",
+    "test": "vitest run",
+    "test:browser": "playwright test",
+    "check": "npm run typecheck && npm run lint && npm test && npm run build",
+    "format": "prettier --write src tests scripts *.ts *.js *.json \"deployment/*.json\" index.html README.md CHANGELOG.md \"docs/*.md\" \".github/workflows/*.yml\"",
+    "format:check": "prettier --check src tests scripts *.ts *.js *.json \"deployment/*.json\" index.html README.md CHANGELOG.md \"docs/*.md\" \".github/workflows/*.yml\"",
+    "test:recovery": "playwright test tests/browser/offline-file.spec.ts tests/browser/linked.spec.ts tests/browser/app.spec.ts tests/browser/automatic-import.spec.ts --grep \"actual downloaded|exact reader|link landing|offline saved reader|new passwords require|automatic-import\"",
+    "test:pdf": "playwright test tests/browser/print.spec.ts"
+  },
+  "dependencies": {
+    "@zxing/library": "0.23.0",
+    "hash-wasm": "4.12.0",
+    "qrcode": "1.5.4"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.14.0",
+    "@eslint/js": "10.0.1",
+    "@playwright/test": "1.64.1",
+    "@types/node": "26.6.5",
+    "@types/qrcode": "1.5.6",
+    "esbuild": "0.28.2",
+    "eslint": "10.12.0",
+    "parse5": "8.0.1",
+    "prettier": "3.9.10",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.71.2",
+    "vite": "8.3.4",
+    "vitest": "5.0.5"
+  },
+  "engines": {
+    "node": ">=24 <25"
+  }
+}
