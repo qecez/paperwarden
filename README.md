@@ -2,13 +2,21 @@
 
 [![Release](https://img.shields.io/badge/release-latest-64748b)](https://github.com/qecez/paperwarden/releases/latest) [![License: MIT](https://img.shields.io/badge/license-MIT-64748b)](LICENSE)
 
-Paperwarden turns passwords, recovery codes, private keys, or instructions for your family into encrypted QR codes you can print. The app is one self-contained HTML file: a saved copy can create and recover backups without the website, an account, or an installation.
+**Encrypted paper backups you can recover offline.**
 
-A backup holds one or two messages, each protected by a separate password, within one fixed-size QR code.
+Paperwarden turns short, important text—passwords, recovery codes, private keys, or instructions for your family—into a password-protected backup you can print and store. One backup holds one or two messages, each protected by a separate password, within one fixed-size QR code.
 
-**Why paper?** Paper needs no power or subscription and remains accessible when devices or online accounts are unavailable.
+Backup drives fail, phones get stolen, and accounts get locked. Paper needs no power or subscription. The QR contains the encrypted data itself, so a saved reader can recover it without the website, an account, or this project continuing to exist.
 
-## Use
+## One file, ready to use
+
+The complete application is one self-contained `paperwarden.html` file. Download it from [paperwarden.com](https://paperwarden.com/) or the official [GitHub releases](https://github.com/qecez/paperwarden/releases), [verify its checksum](#verify-the-app), and open the saved file in a compatible browser.
+
+No installation, local server, or internet connection is required to create or open a backup with the saved app. Its scripts, cryptographic code, QR tools, fonts, word lists, and notices are embedded. Node.js and npm are needed only for development.
+
+The repository's built reader is [`dist/paperwarden.html`](dist/paperwarden.html). The root `index.html` is the development entry point.
+
+## Create now. Recover later.
 
 ### Make a backup
 
@@ -17,14 +25,27 @@ A backup holds one or two messages, each protected by a separate password, withi
 3. Choose **Create backup**, select **A4** or **US Letter**, then **Save PDF**. Print the PDF at 100% with the QR's complete white border and keep every page. **Save as text** downloads the same checksummed text block, named with the backup's four-word ID.
 4. Use the saved app to recover every message from a photo or scan of the actual print before storing it.
 
+The PDF contains four pages: the QR and Backup ID, two pages of checksummed encrypted text, and a technical recovery reference. Keep all four. The written copy provides another route to recovery if the QR is damaged; it is encrypted too and still requires your password.
+
+The QR is 150 mm square including its white border. Choose the matching paper size when printing, and check that the PDF viewer and printer have not scaled or cropped it. The PDF fixes the page layout, but only testing your actual print establishes that your recovery device can read it.
+
 ### Recover a backup
 
 1. Open your verified, saved app and choose **Decrypt**.
 2. Choose **Scan QR code** or **Choose QR image**, or paste the text copy or QR-generated link. Pasted text loads automatically.
 3. Compare the four-word Backup ID shown in the app with your paper. Matching words help identify the backup but do not authenticate it.
 4. Enter the password for the message you want to recover and choose **Decrypt backup**.
+5. Use **Clear text** to return to password entry for the same backup, or **Load another backup** to clear it and import a different one.
+
+If the QR is damaged, paste or transcribe the complete written copy, including its BEGIN/END markers, format heading, full SHA-256 fingerprint, all 115 numbered lines, and their checksums. The reader checks the transcription before asking for your password.
 
 See [recovery instructions](docs/RECOVERY.md) for damaged QRs and recovery without the app.
+
+## Keep the means to recover it
+
+The app download is a clean copy of the reader. It contains no entered messages, passwords, or generated backups. Preserve the encrypted paper, PDF, or text copy separately from the reader and its password. Generated passwords are not automatically saved.
+
+Keeping the reader removes the need to find it online later, but it cannot guarantee indefinite browser compatibility. Keep the [frozen specification](docs/FORMAT.md) and [public test vectors](tests/fixtures/reference.json) with it, and periodically check recovery on your current device. The printed technical reference also supports implementing a reader if the original app can no longer run.
 
 **For family:** Use the non-sensitive notes area to identify the paper and the saved app's location; do not write secrets there. Tell your family how many messages exist and who has each password. Keep passwords apart from the paper and spare copies in different places.
 
@@ -40,7 +61,19 @@ Scanning the QR with a phone camera may open the website. This is a convenience 
 
 Paper can be lost or damaged. Store prints away from light and moisture, keep spare copies, and test the actual print and recovery device.
 
-The design and implementation have not had an independent security audit. The [threat model](docs/THREAT_MODEL.md) describes the assumptions and remaining limits; [validation](docs/VALIDATION.md) describes what the tests cover.
+The [threat model](docs/THREAT_MODEL.md) describes the assumptions and remaining limits; [validation](docs/VALIDATION.md) describes what the tests cover. Automated and digital checks do not replace independent cryptographic review or testing actual printers, cameras, lighting conditions, and devices.
+
+## Encryption and the PWN-1 format
+
+Paperwarden uses the documented [PWN-1 format](docs/FORMAT.md):
+
+- **Argon2id** derives password material using a fixed profile of 64 MiB memory, three iterations, and parallelism one.
+- **HKDF-SHA256** derives separate keys for encrypted headers and message data.
+- **AES-256-GCM** encrypts and authenticates each protected message and its header.
+
+Passwords are Unicode NFC-normalized without trimming or case folding. Spaces and capitalization remain significant. Message text preserves its original whitespace and newlines.
+
+A strong password matters because encryption cannot prevent someone holding the backup from attempting guesses. The Backup ID, full fingerprint, and text-line checksums help identify copies and detect copying errors; they are not digital signatures or proof of who created the backup.
 
 ## Limited plausible deniability
 
@@ -85,3 +118,7 @@ Start with the [format](docs/FORMAT.md) and [threat model](docs/THREAT_MODEL.md)
 | Browser state and cancellation              | [src/main.ts](src/main.ts)                               |
 | Encrypted-only print output                 | [src/print](src/print/)                                  |
 | Build and publication                       | [scripts](scripts/), [hosting contract](docs/HOSTING.md) |
+
+## License
+
+Paperwarden is [MIT licensed](LICENSE).
