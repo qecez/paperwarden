@@ -10,6 +10,8 @@ You need the encrypted backup, its password, and a trusted reader. Save and test
 4. Enter the message's password and choose **Decrypt backup**. Each password opens its matching message. There is no message list or password reset.
 5. After recovery, **Clear text** returns to password entry for the same backup. **Load another backup** clears the current backup, ID, password, and recovered text, then returns to import.
 
+If your password contains line breaks, select **My password contains line breaks**. In the password field, enter `\n` for a line feed, `\r` for a carriage return, and `\r\n` for the Windows sequence. In this mode, enter `\\` for a literal backslash. With the option off, enter your password exactly as written, including any backslashes.
+
 If you loaded the wrong backup before decrypting, reload the app to start over.
 
 Image import accepts PNG, JPEG, WebP, BMP, and SVG. Open a saved text copy in a text editor and paste its complete contents. The app requires JavaScript, Web Crypto, WebAssembly, and Blob workers. Camera access from a local file depends on browser permissions; if unavailable, import an image or paste the text.

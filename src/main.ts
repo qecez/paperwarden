@@ -182,10 +182,40 @@ function showRecovered(visible: boolean) {
     visible ? "recovered-heading" : "decrypt-heading",
   );
 }
+const lineBreakOption = field("password-line-breaks");
+function updateLineBreakHelp() {
+  show("line-break-help", lineBreakOption.checked);
+  field("open-password").setAttribute(
+    "aria-describedby",
+    lineBreakOption.checked
+      ? "loaded-backup-id line-break-help"
+      : "loaded-backup-id",
+  );
+}
+lineBreakOption.addEventListener("change", () => {
+  updateLineBreakHelp();
+  report("decrypt-error");
+});
+function openingPassword(): string {
+  const value = field("open-password").value;
+  if (!lineBreakOption.checked) return value;
+  // Each of the reader's 4096 raw UTF-16 units can take two units in this notation.
+  if (value.length > 8192) throw new PaperError("password");
+  return value.replace(/\\[\\rn]/g, (escape) => {
+    if (escape === "\\n") return "\n";
+    if (escape === "\\r") return "\r";
+    return "\\";
+  });
+}
+function clearOpeningPassword() {
+  field("open-password").value = "";
+  lineBreakOption.checked = false;
+  updateLineBreakHelp();
+  resetPasswordButtons(element("decrypt-view"));
+}
 function clearRecovered() {
   clearRecoveredTextOnly();
-  field("open-password").value = "";
-  resetPasswordButtons(element("decrypt-view"));
+  clearOpeningPassword();
 }
 function discardGenerated() {
   generated?.pdfs.A4.fill(0);
@@ -338,6 +368,8 @@ function addMessage() {
   text.required = true;
   text.spellcheck = false;
   text.autocomplete = "off";
+  text.setAttribute("autocorrect", "off");
+  text.autocapitalize = "none";
   // Every message shows the same shared budget, with its own accessible labels.
   const capacity = element("capacity-display").cloneNode(true) as HTMLElement;
   capacity.id = `capacity-display-${suffix}`;
@@ -483,6 +515,28 @@ function validInputs(id: string): boolean {
 // These are local cryptographic operations, not account sign-in forms. Keep
 // native secure inputs and validation without submitting credentials. Browsers
 // and extensions can still override the fields' autocomplete preference.
+document.addEventListener("paste", (event) => {
+  const input = event.target;
+  if (
+    !(input instanceof HTMLInputElement) ||
+    !input.matches("[data-password], #open-password") ||
+    !/[\r\n]/.test(event.clipboardData?.getData("text/plain") ?? "")
+  )
+    return;
+  // A single-line input would silently remove these characters.
+  event.preventDefault();
+  if (input.id === "open-password") {
+    report(
+      "decrypt-error",
+      "For a multiline password, select “My password contains line breaks” and enter the line breaks as shown.",
+    );
+  } else {
+    report(
+      "encrypt-error",
+      "Enter a password on one line. The pasted password contains a line break.",
+    );
+  }
+});
 document.addEventListener("keydown", (event) => {
   if (
     event.key !== "Enter" ||
@@ -666,15 +720,14 @@ element("open-button").addEventListener("click", async () => {
       {
         kind: "decrypt",
         container: loaded,
-        password: field("open-password").value,
+        password: openingPassword(),
       },
       { signal: job.controller.signal },
     );
     if (!isCurrent(job)) return;
     element("recovered-text").textContent = result.text;
     result.text = "";
-    field("open-password").value = "";
-    resetPasswordButtons(element("decrypt-view"));
+    clearOpeningPassword();
     showRecovered(true);
     element("recovered-heading").focus();
   } catch (error) {

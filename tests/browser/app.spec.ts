@@ -90,6 +90,12 @@ test("local password actions keep validation and Enter without a leave-page warn
   await expect(page.locator("#text")).toBeFocused();
   await expect(page.locator("#backup-result")).toBeHidden();
   await enterMessages(page, 2);
+  const messageFields = page.locator("textarea[data-text]");
+  await expect(messageFields).toHaveCount(2);
+  for (const message of await messageFields.all()) {
+    await expect(message).toHaveAttribute("autocorrect", "off");
+    await expect(message).toHaveAttribute("autocapitalize", "none");
+  }
   await page.locator("#text").press("ControlOrMeta+End");
   await page.locator("#text").press("Enter");
   await expect(page.locator("#text")).toHaveValue(messages[0].text + "\n");
@@ -274,6 +280,62 @@ test("new passwords require seven normalized characters without restricting reco
   await page.locator("#decrypt-tab").click();
   await loadText(page, encodeTransport(backup));
   await recover(page, shorter.password, shorter.text);
+});
+
+test("multiline passwords recover exactly and line-break notation resets", async ({
+  page,
+}) => {
+  const multiline = {
+    password: "\rfirst\nsecond\r\nthird\\fourth\\n\n",
+    text: "Public multiline-password recovery fixture",
+  };
+  const literal = {
+    password: String.raw`public\nordinary`,
+    text: "Public literal-backslash recovery fixture",
+  };
+  const backup = await encryptEnvelope([multiline, literal]);
+  await page.goto("/");
+  await page.locator("#decrypt-tab").click();
+  await loadText(page, encodeTransport(backup));
+
+  const mode = page.locator("#password-line-breaks");
+  await expect(mode).not.toBeChecked();
+  await mode.check();
+  await expect(page.locator("#open-password")).toHaveAttribute(
+    "type",
+    "password",
+  );
+  await recover(
+    page,
+    String.raw`\rfirst\nsecond\r\nthird\\fourth\\n\n`,
+    multiline.text,
+  );
+
+  await page.locator("#close-text").click();
+  await expect(mode).not.toBeChecked();
+  await recover(page, literal.password, literal.text);
+});
+
+test("creation refuses a password paste containing a line break", async ({
+  page,
+}) => {
+  await page.goto("/");
+  const password = page.locator("#password");
+  await password.fill("original public password");
+  const accepted = await password.evaluate((field) => {
+    const clipboardData = new DataTransfer();
+    clipboardData.setData("text/plain", "public first\r\npublic second");
+    return field.dispatchEvent(
+      new ClipboardEvent("paste", {
+        clipboardData,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+  });
+  expect(accepted).toBe(false);
+  await expect(password).toHaveValue("original public password");
+  await expect(page.locator("#encrypt-error")).toContainText("one line");
 });
 
 // Public fixtures only: never use real private backups in browser artifacts.
