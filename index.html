@@ -89,6 +89,8 @@
                   required
                   spellcheck="false"
                   autocomplete="off"
+                  autocorrect="off"
+                  autocapitalize="none"
                   aria-describedby="capacity-label capacity"
                 ></textarea>
                 <div id="capacity-display" class="capacity" data-capacity>
@@ -273,6 +275,15 @@
                 title="Show password"
               ></button>
             </div>
+            <label class="line-break-option">
+              <input id="password-line-breaks" type="checkbox" />
+              My password contains line breaks
+            </label>
+            <p id="line-break-help" class="hint" hidden>
+              Enter <code>\n</code> for a line feed, <code>\r</code> for a
+              carriage return, or <code>\r\n</code> for both. Enter
+              <code>\\</code> for a literal backslash.
+            </p>
             <div class="actions">
               <button id="open-button" class="primary" type="button">
                 Decrypt backup

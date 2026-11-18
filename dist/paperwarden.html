@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-8piWVvjF15WvPDuF6mrmV1b1hIDhYGrsvlZfqCav1iU=' 'wasm-unsafe-eval'; style-src 'sha256-m9UeVxIyk07TfW2a/bz+LGyh3CHiWXXz3BL26xqZ5GI='; font-src data:; img-src data: blob:; media-src blob:; worker-src blob:; connect-src 'none'; base-uri 'none'; form-action 'none'; object-src 'none'">
+<!DOCTYPE html><html lang="en"><head><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-LPpgSajbj8mFiVortk7RuJZLhs5iaHSok9JgYgXLbaI=' 'wasm-unsafe-eval'; style-src 'sha256-2zExO86wPx1/n9ipJ+Fm83Soeirsuvhw5gTj6xi+l10='; font-src data:; img-src data: blob:; media-src blob:; worker-src blob:; connect-src 'none'; base-uri 'none'; form-action 'none'; object-src 'none'">
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="referrer" content="no-referrer">
@@ -532,6 +532,21 @@ meter::-moz-meter-bar {
   margin-top: 24px;
 }
 
+.line-break-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0;
+  font-size: 14px;
+}
+
+.line-break-option input {
+  width: 1em;
+  height: 1em;
+  margin: 0;
+  padding: 0;
+}
+
 #paste-form .hint {
   margin: 12px 0;
 }
@@ -950,7 +965,7 @@ dialog::backdrop {
               <fieldset class="message-fields" data-message="">
                 <legend class="sr-only">Your message</legend>
                 <label for="text">Message</label>
-                <textarea id="text" data-text="" rows="4" required="" spellcheck="false" autocomplete="off" aria-describedby="capacity-label capacity"></textarea>
+                <textarea id="text" data-text="" rows="4" required="" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="none" aria-describedby="capacity-label capacity"></textarea>
                 <div id="capacity-display" class="capacity" data-capacity="">
                   <div class="capacity-heading">
                     <label id="capacity-label" for="capacity-meter" data-capacity-label="">Backup space</label>
@@ -1046,6 +1061,15 @@ dialog::backdrop {
             <div class="password-row">
               <input id="open-password" type="password" aria-describedby="loaded-backup-id" autocomplete="off" autocorrect="off" required="" spellcheck="false" autocapitalize="none"><button type="button" class="icon-button" data-show="open-password" aria-controls="open-password" aria-pressed="false" aria-label="Show password" title="Show password"></button>
             </div>
+            <label class="line-break-option">
+              <input id="password-line-breaks" type="checkbox">
+              My password contains line breaks
+            </label>
+            <p id="line-break-help" class="hint" hidden="">
+              Enter <code>\n</code> for a line feed, <code>\r</code> for a
+              carriage return, or <code>\r\n</code> for both. Enter
+              <code>\\</code> for a literal backslash.
+            </p>
             <div class="actions">
               <button id="open-button" class="primary" type="button">
                 Decrypt backup
@@ -15346,10 +15370,37 @@ end
       visible ? "recovered-heading" : "decrypt-heading"
     );
   }
+  var lineBreakOption = field("password-line-breaks");
+  function updateLineBreakHelp() {
+    show("line-break-help", lineBreakOption.checked);
+    field("open-password").setAttribute(
+      "aria-describedby",
+      lineBreakOption.checked ? "loaded-backup-id line-break-help" : "loaded-backup-id"
+    );
+  }
+  lineBreakOption.addEventListener("change", () => {
+    updateLineBreakHelp();
+    report("decrypt-error");
+  });
+  function openingPassword() {
+    const value = field("open-password").value;
+    if (!lineBreakOption.checked) return value;
+    if (value.length > 8192) throw new PaperError("password");
+    return value.replace(/\\[\\rn]/g, (escape) => {
+      if (escape === "\\n") return "\n";
+      if (escape === "\\r") return "\r";
+      return "\\";
+    });
+  }
+  function clearOpeningPassword() {
+    field("open-password").value = "";
+    lineBreakOption.checked = false;
+    updateLineBreakHelp();
+    resetPasswordButtons(element("decrypt-view"));
+  }
   function clearRecovered() {
     clearRecoveredTextOnly();
-    field("open-password").value = "";
-    resetPasswordButtons(element("decrypt-view"));
+    clearOpeningPassword();
   }
   function discardGenerated() {
     generated?.pdfs.A4.fill(0);
@@ -15481,6 +15532,8 @@ end
     text.required = true;
     text.spellcheck = false;
     text.autocomplete = "off";
+    text.setAttribute("autocorrect", "off");
+    text.autocapitalize = "none";
     const capacity = element("capacity-display").cloneNode(true);
     capacity.id = `capacity-display-${suffix}`;
     const capacityLabel = capacity.querySelector(
@@ -15601,6 +15654,23 @@ end
     }
     return true;
   }
+  document.addEventListener("paste", (event) => {
+    const input = event.target;
+    if (!(input instanceof HTMLInputElement) || !input.matches("[data-password], #open-password") || !/[\r\n]/.test(event.clipboardData?.getData("text/plain") ?? ""))
+      return;
+    event.preventDefault();
+    if (input.id === "open-password") {
+      report(
+        "decrypt-error",
+        "For a multiline password, select “My password contains line breaks” and enter the line breaks as shown."
+      );
+    } else {
+      report(
+        "encrypt-error",
+        "Enter a password on one line. The pasted password contains a line break."
+      );
+    }
+  });
   document.addEventListener("keydown", (event) => {
     if (event.key !== "Enter" || event.isComposing || event.repeat || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey)
       return;
@@ -15761,15 +15831,14 @@ end
         {
           kind: "decrypt",
           container: loaded,
-          password: field("open-password").value
+          password: openingPassword()
         },
         { signal: job.controller.signal }
       );
       if (!isCurrent(job)) return;
       element("recovered-text").textContent = result.text;
       result.text = "";
-      field("open-password").value = "";
-      resetPasswordButtons(element("decrypt-view"));
+      clearOpeningPassword();
       showRecovered(true);
       element("recovered-heading").focus();
     } catch (error) {
